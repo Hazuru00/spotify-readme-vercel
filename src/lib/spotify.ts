@@ -6,11 +6,12 @@ const REFRESH_TOKEN = process.env.SPOTIFY_REFRESH_TOKEN;
 
 const BASIC = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 const NOW_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing';
+const RECENTLY_PLAYED_URL = 'https://api.spotify.com/v1/me/player/recently-played?limit=1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
 export async function getAccessToken() {
   if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    throw new Error('Missing Spotify credentials in environment variables.');
+    throw new Error('Missing Spotify credentials in environment variables. Check SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN.');
   }
 
   const response = await fetch(TOKEN_URL, {
@@ -26,13 +27,28 @@ export async function getAccessToken() {
     cache: 'no-store',
   });
 
-  return response.json();
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(`Spotify Token Error: ${data.error_description || data.error}`);
+  }
+  return data;
 }
 
 export async function getNowPlaying() {
   const { access_token } = await getAccessToken();
 
   return fetch(NOW_PLAYING_URL, {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+    },
+    cache: 'no-store',
+  });
+}
+
+export async function getRecentlyPlayed() {
+  const { access_token } = await getAccessToken();
+
+  return fetch(RECENTLY_PLAYED_URL, {
     headers: {
       Authorization: `Bearer ${access_token}`,
     },
@@ -53,11 +69,27 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
   try {
     const response = await getNowPlaying();
 
+    // If 204 or no item, try fetching recently played
     if (response.status === 204 || response.status > 400) {
+      const recentRes = await getRecentlyPlayed();
+      const recentData = await recentRes.json();
+      
+      if (recentData.items && recentData.items.length > 0) {
+        const lastTrack = recentData.items[0].track;
+        return {
+          isPlaying: false,
+          title: lastTrack.name,
+          artist: lastTrack.artists.map((a: any) => a.name).join(', '),
+          albumArt: lastTrack.album.images?.[1]?.url || null,
+          progress: 0,
+          duration: lastTrack.duration_ms || 1,
+        };
+      }
+
       return {
         isPlaying: false,
         title: 'Nothing playing',
-        artist: '—',
+        artist: 'Spotify Idle',
         albumArt: null,
         progress: 0,
         duration: 1,
@@ -68,8 +100,8 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
     if (!data.item) {
        return {
         isPlaying: false,
-        title: 'Nothing playing',
-        artist: '—',
+        title: 'Ad break or private session',
+        artist: 'Spotify',
         albumArt: null,
         progress: 0,
         duration: 1,
@@ -84,12 +116,12 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
       progress: data.progress_ms || 0,
       duration: data.item.duration_ms || 1,
     };
-  } catch (error) {
-    console.error('Error fetching Spotify data:', error);
+  } catch (error: any) {
+    console.error('Error fetching Spotify data:', error.message);
     return {
       isPlaying: false,
-      title: 'Error fetching',
-      artist: 'Check logs',
+      title: 'Configuration Error',
+      artist: 'Check environment variables',
       albumArt: null,
       progress: 0,
       duration: 1,
