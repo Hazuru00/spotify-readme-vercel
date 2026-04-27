@@ -11,7 +11,7 @@ const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
 export async function getAccessToken() {
   if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    throw new Error('Missing Spotify credentials in environment variables. Check SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN.');
+    throw new Error('Missing Spotify credentials');
   }
 
   const response = await fetch(TOKEN_URL, {
@@ -69,7 +69,6 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
   try {
     const response = await getNowPlaying();
 
-    // If 204 or no item, try fetching recently played
     if (response.status === 204 || response.status > 400) {
       const recentRes = await getRecentlyPlayed();
       const recentData = await recentRes.json();
@@ -89,7 +88,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
       return {
         isPlaying: false,
         title: 'Nothing playing',
-        artist: 'Spotify Idle',
+        artist: '— silencio total —',
         albumArt: null,
         progress: 0,
         duration: 1,
@@ -100,7 +99,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
     if (!data.item) {
        return {
         isPlaying: false,
-        title: 'Ad break or private session',
+        title: 'Ad break / Private session',
         artist: 'Spotify',
         albumArt: null,
         progress: 0,
@@ -120,8 +119,8 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
     console.error('Error fetching Spotify data:', error.message);
     return {
       isPlaying: false,
-      title: 'Configuration Error',
-      artist: 'Check environment variables',
+      title: 'ERROR',
+      artist: error.message || 'Check config',
       albumArt: null,
       progress: 0,
       duration: 1,

@@ -70,127 +70,207 @@ export type SVGTheme = {
 export function generateSVG(
   { title, artist, albumArt, isPlaying, progress, duration }: any,
   theme: SVGTheme = {
-    primaryColor: '#46F20D',
-    backgroundColor: '#0C0F0B',
-    accentColor: '#C9E085',
+    primaryColor: '#00ff41',
+    backgroundColor: '#001800',
+    accentColor: '#00cc33',
     scanlinePattern: 'subtle',
     glitchEffect: 'flicker'
   }
 ) {
-  const W = 400, H = 130;
+  const W = 420, H = 145;
   const prog = duration > 0 ? Math.min(progress / duration, 1) : 0;
-  const progW = Math.floor(prog * 288);
+  const BAR_X = 108;
+  const BAR_W = 290;
+  const progW = Math.floor(prog * BAR_W);
+  const dotX = BAR_X + progW;
 
-  // Scanline pattern
-  let scanlines = "";
-  if (theme.scanlinePattern !== 'none') {
-    const step = theme.scanlinePattern === 'dense' ? 2 : 4;
-    scanlines = Array.from({ length: Math.floor(H / step) }, (_, i) =>
-      `<rect x="0" y="${i * step}" width="${W}" height="1" fill="rgba(0,0,0,0.2)"/>`
-    ).join("");
-  }
+  const fmt = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
 
-  // Bar EQ animation (Growing from bottom H-18)
-  const bars = Array.from({ length: 15 }, (_, i) => {
-    const h = 4;
-    const animDur = (0.5 + (i * 0.08)).toFixed(2);
-    const maxH = isPlaying ? 25 + (i % 5) * 6 : 4;
-    const xPos = 100 + i * 14;
-    const yBaseline = H - 18;
-    
+  const truncate = (str: string, n: number) => str.length > n ? str.slice(0, n - 1) + "…" : str;
+  const titleStr = truncate(title, 26);
+  const artistStr = truncate(artist, 32);
+
+  // ── SCANLINES ────────────────────────────────────────────────────────────────
+  const scanStep = theme.scanlinePattern === 'dense' ? 2 : 4;
+  const scanlines = theme.scanlinePattern !== 'none' 
+    ? Array.from({ length: Math.ceil(H / scanStep) }, (_, i) =>
+        `<rect x="0" y="${i * scanStep}" width="${W}" height="1" fill="rgba(0,0,0,0.18)"/>`
+      ).join("")
+    : "";
+
+  // ── PIXEL RAIN ───────────────────────────────────────────────────────────────
+  const rain = Array.from({ length: 18 }, (_, i) => {
+    const x = 4 + i * 23;
+    const dur = (0.8 + (i % 7) * 0.23).toFixed(2);
+    const startY = (i * 37) % H;
+    const chars = ["0","1","█","▒","░","◆","✦"];
+    const ch = chars[i % chars.length];
     return `
-      <rect x="${xPos}" y="${yBaseline - h}" width="8" height="${h}" fill="${theme.primaryColor}" rx="1">
+      <text x="${x}" y="${startY}" font-family="monospace" font-size="7" fill="${theme.primaryColor}" opacity="0.10">
+        ${ch}
+        <animateTransform attributeName="transform" type="translate"
+          values="0,0; 0,${H - startY}; 0,${-startY}"
+          dur="${dur}s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.10;0.18;0.06;0.10"
+          dur="${dur}s" repeatCount="indefinite"/>
+      </text>`;
+  }).join("");
+
+  // ── EQ BARS ──────────────────────────────────────────────────────────────────
+  const eqBars = Array.from({ length: 10 }, (_, i) => {
+    const x = BAR_X + i * 11;
+    const minH = 3;
+    const maxH = isPlaying ? 14 + (i % 5) * 5 : 3;
+    const midH = Math.floor((minH + maxH) / 2);
+    const dur = (0.35 + (i * 0.06)).toFixed(2);
+    const delay = (i * 0.04).toFixed(2);
+    return `
+      <rect x="${x}" y="${H - 22 - minH}" width="7" height="${minH}" fill="${theme.primaryColor}" rx="1" opacity="0.9">
         ${isPlaying ? `
-          <animate attributeName="height" values="${h};${maxH};${h}" dur="${animDur}s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="${yBaseline - h};${yBaseline - maxH};${yBaseline - h}" dur="${animDur}s" repeatCount="indefinite"/>
-        ` : ""}
+        <animate attributeName="height"
+          values="${minH};${maxH};${midH};${maxH};${minH}"
+          dur="${dur}s" begin="${delay}s" repeatCount="indefinite"/>
+        <animate attributeName="y"
+          values="${H-22-minH};${H-22-maxH};${H-22-midH};${H-22-maxH};${H-22-minH}"
+          dur="${dur}s" begin="${delay}s" repeatCount="indefinite"/>` : ""}
       </rect>`;
   }).join("");
 
-  const truncate = (str: string, n: number) => str.length > n ? str.slice(0, n - 1) + "…" : str;
-  const titleShort = truncate(title, 28);
-  const artistShort = truncate(artist, 38);
-
-  let glitch = "";
-  if (theme.glitchEffect === 'flicker') {
-    glitch = `<animate attributeName="opacity" values="0;0.05;0;0.03;0;0;0.08;0" dur="2s" repeatCount="indefinite"/>`;
-  } else if (theme.glitchEffect === 'static') {
-     glitch = `<animate attributeName="opacity" values="0;0.02;0.05;0.01;0.04;0.02" dur="0.1s" repeatCount="indefinite"/>`;
+  // ── GLITCH EFFECT ────────────────────────────────────────────────────────────
+  let glitchFlash = "";
+  if (theme.glitchEffect !== 'none') {
+    glitchFlash = `
+      <rect width="${W}" height="${H}" fill="${theme.primaryColor}" opacity="0" rx="8">
+        <animate attributeName="opacity"
+          values="0;0;0;0;0.04;0;0;0;0.02;0;0"
+          dur="4.3s" repeatCount="indefinite"/>
+      </rect>`;
   }
 
-  // Use system fonts that work in GitHub READMEs
-  const fontMain = "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, monospace";
+  const glitchSlices = (isPlaying && theme.glitchEffect === 'wave') ? `
+    <rect x="0" y="38" width="${W}" height="8" fill="none" filter="url(#glitchBlur)">
+      <animate attributeName="x" values="0;4;0;-4;0" dur="6s" repeatCount="indefinite" keyTimes="0;0.01;0.02;0.03;1"/>
+      <animate attributeName="opacity" values="0;1;0;0;0" dur="6s" repeatCount="indefinite" keyTimes="0;0.01;0.02;0.03;1"/>
+    </rect>
+    <rect x="0" y="62" width="${W}" height="5" fill="none" filter="url(#glitchBlur)">
+      <animate attributeName="x" values="0;-6;0;6;0" dur="7.5s" repeatCount="indefinite" keyTimes="0;0.008;0.016;0.024;1"/>
+      <animate attributeName="opacity" values="0;1;0;0;0" dur="7.5s" repeatCount="indefinite" keyTimes="0;0.008;0.016;0.024;1"/>
+    </rect>` : "";
+
+  const corner = (x: number, y: number, ch: string) =>
+    `<text x="${x}" y="${y}" fill="${theme.primaryColor}" font-size="7" opacity="0.4" font-family="monospace">${ch}
+      <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
+    </text>`;
+
+  const overflowPx = Math.max(0, title.length - 22) * 7;
+  const titleScroll = overflowPx > 0 && isPlaying
+    ? `<animateTransform attributeName="transform" type="translate"
+        values="0,0; -${overflowPx},0; -${overflowPx},0; 0,0"
+        dur="5s" repeatCount="indefinite"/>`
+    : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glitchBlur">
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+    </filter>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="60%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
+    </radialGradient>
     <clipPath id="albumClip">
-      <rect x="10" y="10" width="80" height="80" rx="4"/>
+      <rect x="10" y="12" width="82" height="82" rx="5"/>
+    </clipPath>
+    <clipPath id="titleClip">
+      <rect x="${BAR_X}" y="24" width="${BAR_W}" height="20"/>
+    </clipPath>
+    <clipPath id="artistClip">
+      <rect x="${BAR_X}" y="44" width="${BAR_W}" height="14"/>
     </clipPath>
   </defs>
 
   <!-- Background -->
   <rect width="${W}" height="${H}" fill="${theme.backgroundColor}" rx="8"/>
-  <rect width="${W}" height="${H}" fill="none" stroke="${theme.primaryColor}" stroke-width="2" rx="8" opacity="0.3"/>
+  ${rain}
   ${scanlines}
+  <rect width="${W}" height="${H}" fill="url(#vignette)" rx="8"/>
+  <rect width="${W}" height="${H}" fill="none" stroke="${theme.primaryColor}" stroke-width="1.5" rx="8" opacity="0.7" filter="url(#glow)"/>
+
+  <!-- Corners -->
+  ${corner(5, 10, "▶")} ${corner(W - 12, 10, "◀")}
+  ${corner(5, H - 3, "◀")} ${corner(W - 12, H - 3, "▶")}
 
   <!-- Album Art -->
-  <g filter="url(#glow)">
+  <g>
     ${albumArt
-      ? `<image href="${albumArt}" x="10" y="10" width="80" height="80" clip-path="url(#albumClip)" preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect x="10" y="10" width="80" height="80" rx="4" fill="#111" stroke="${theme.primaryColor}" stroke-width="1"/>
-         <text x="50" y="58" fill="${theme.primaryColor}" font-size="30" text-anchor="middle">♪</text>`
+      ? `<image href="${albumArt}" x="10" y="12" width="82" height="82" clip-path="url(#albumClip)" preserveAspectRatio="xMidYMid slice" image-rendering="pixelated"/>`
+      : `<rect x="10" y="12" width="82" height="82" rx="5" fill="${theme.backgroundColor}" stroke="${theme.primaryColor}" stroke-width="2"/>
+         <text x="51" y="60" fill="${theme.primaryColor}" font-size="28" text-anchor="middle">♪</text>`
     }
-    <rect x="10" y="10" width="80" height="80" rx="4" fill="none" stroke="${theme.primaryColor}" stroke-width="1.5" opacity="0.5"/>
+    <rect x="10" y="12" width="82" height="82" rx="5" fill="none" stroke="${theme.primaryColor}" stroke-width="2">
+      ${isPlaying ? `<animate attributeName="stroke-opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>` : `<rect opacity="0.3"/>`}
+    </rect>
   </g>
 
-  <!-- Status Label (Pixelized) -->
-  <g transform="translate(100, 10)">
-    ${pixelText(isPlaying ? "NOW PLAYING" : "LAST PLAYED", 0, 0, isPlaying ? theme.primaryColor : theme.accentColor)}
-    ${isPlaying ? `
-      <rect x="${(isPlaying ? "NOW PLAYING" : "LAST PLAYED").length * 8}" y="0" width="4" height="8" fill="${theme.primaryColor}">
-        <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
-      </rect>
-    ` : ""}
+  <!-- Status Tag -->
+  <g>
+    ${isPlaying
+      ? `<text x="${BAR_X}" y="22" font-family="monospace" font-size="9" fill="${theme.primaryColor}" filter="url(#glow)">▶ NOW PLAYING
+          <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+        </text>`
+      : `<text x="${BAR_X}" y="22" font-family="monospace" font-size="9" fill="#555">■ LAST PLAYED</text>`
+    }
   </g>
 
-  <!-- Title & Artist -->
-  <g transform="translate(100, 35)">
-    <text font-family="${fontMain}" font-size="14" font-weight="bold" fill="${theme.primaryColor}" filter="url(#glow)">
-      ${titleShort}
+  <!-- Song Title -->
+  <g clip-path="url(#titleClip)">
+    <text x="${BAR_X}" y="37" font-family="monospace" font-size="14" font-weight="bold" fill="${theme.primaryColor}" filter="url(#glow)">
+      ${titleStr}
+      ${titleScroll}
     </text>
-    <text y="18" font-family="${fontMain}" font-size="11" fill="${theme.accentColor}" opacity="0.8">
-      ${artistShort}
-    </text>
+  </g>
+
+  <!-- Artist -->
+  <g clip-path="url(#artistClip)">
+    <text x="${BAR_X}" y="53" font-family="monospace" font-size="11" fill="${theme.accentColor}" opacity="0.85">${artistStr}</text>
   </g>
 
   <!-- Progress Bar -->
-  <g transform="translate(100, 68)">
-    <rect width="288" height="6" rx="3" fill="#000" stroke="${theme.primaryColor}" stroke-width="1" opacity="0.2"/>
-    <rect width="${progW}" height="6" rx="3" fill="${theme.primaryColor}" filter="url(#glow)">
-      ${isPlaying ? `<animate attributeName="width" from="${progW}" to="288" dur="${(duration - progress) / 1000}s" fill="freeze" />` : ""}
-    </rect>
-    
-    <!-- Timestamps -->
-    <text y="18" font-family="${fontMain}" font-size="9" fill="${theme.primaryColor}" opacity="0.6">
-      ${Math.floor(progress/60000)}:${String(Math.floor((progress%60000)/1000)).padStart(2,"0")}
-    </text>
-    <text x="288" y="18" font-family="${fontMain}" font-size="9" fill="${theme.primaryColor}" text-anchor="end" opacity="0.6">
-      ${Math.floor(duration/60000)}:${String(Math.floor((duration%60000)/1000)).padStart(2,"0")}
-    </text>
-  </g>
-
-  <!-- EQ Bars -->
-  <g filter="url(#glow)">
-    ${bars}
-  </g>
-
-  <!-- Glitch Overlay -->
-  <rect width="${W}" height="${H}" fill="${theme.primaryColor}" opacity="0" pointer-events="none">
-    ${glitch}
+  <rect x="${BAR_X}" y="62" width="${BAR_W}" height="5" rx="2.5" fill="${theme.backgroundColor}" stroke="${theme.primaryColor}" stroke-width="0.8" opacity="0.6"/>
+  <rect x="${BAR_X}" y="62" width="${progW}" height="5" rx="2.5" fill="${theme.primaryColor}" filter="url(#softGlow)">
+    ${isPlaying ? `<animate attributeName="width" from="${progW}" to="${Math.min(progW + 29, BAR_W)}" dur="30s" fill="freeze"/>` : ""}
   </rect>
+
+  <circle cx="${dotX}" cy="64.5" r="5" fill="${theme.primaryColor}" filter="url(#glow)">
+    ${isPlaying ? `
+    <animate attributeName="r" values="4.5;5.5;4.5" dur="1s" repeatCount="indefinite"/>
+    <animate attributeName="cx" from="${dotX}" to="${Math.min(dotX + 29, BAR_X + BAR_W)}" dur="30s" fill="freeze"/>` : ""}
+  </circle>
+
+  <!-- Timestamps -->
+  <text x="${BAR_X}" y="78" font-family="monospace" font-size="9" fill="${theme.accentColor}">${fmt(progress)}</text>
+  <text x="${BAR_X + BAR_W}" y="78" font-family="monospace" font-size="9" fill="${theme.accentColor}" text-anchor="end">${fmt(duration)}</text>
+
+  <!-- EQ bars -->
+  ${eqBars}
+
+  <!-- Spotify badge -->
+  <circle cx="${W - 18}" cy="${H - 16}" r="10" fill="#1DB954" opacity="0.95"/>
+  <text x="${W - 18}" y="${H - 12}" font-size="10" text-anchor="middle" fill="white">♪</text>
+
+  <!-- Glitch effects -->
+  ${glitchFlash}
+  ${glitchSlices}
 </svg>`;
 }
