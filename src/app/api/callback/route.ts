@@ -41,27 +41,27 @@ export async function GET(req: Request) {
       return new NextResponse(JSON.stringify(data, null, 2), { status: 400 });
     }
 
-    // Return a simple HTML page showing the refresh token
     return new NextResponse(`
       <html>
         <head>
-          <title>Token Generated</title>
+          <title>Token Generado</title>
           <style>
-            body { background: #0C0F0B; color: #46F20D; font-family: sans-serif; padding: 40px; }
-            .container { border: 2px solid #46F20D; padding: 20px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
-            h1 { font-style: italic; border-bottom: 1px solid #46F20D33; padding-bottom: 10px; }
-            code { background: #000; display: block; padding: 15px; border-radius: 4px; overflow-wrap: break-word; font-family: monospace; border: 1px solid #46F20D; margin: 20px 0; }
-            .instructions { font-size: 0.9em; opacity: 0.8; }
-            a { color: #C9E085; text-decoration: none; font-weight: bold; }
+            body { background: #0C0F0B; color: #46F20D; font-family: sans-serif; padding: 40px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+            .container { border: 2px solid #46F20D; padding: 30px; border-radius: 8px; max-width: 600px; width: 100%; box-shadow: 0 0 20px rgba(70, 242, 13, 0.2); }
+            h1 { font-style: italic; border-bottom: 1px solid #46F20D33; padding-bottom: 10px; margin-top: 0; }
+            code { background: #000; display: block; padding: 15px; border-radius: 4px; overflow-wrap: break-word; font-family: monospace; border: 1px solid #46F20D; margin: 20px 0; font-size: 1.1em; }
+            .instructions { font-size: 0.9em; opacity: 0.8; margin-bottom: 20px; }
+            a { color: #C9E085; text-decoration: none; font-weight: bold; border: 1px solid #C9E085; padding: 8px 16px; border-radius: 4px; transition: all 0.2s; }
+            a:hover { background: #C9E085; color: #0C0F0B; }
           </style>
         </head>
         <body>
           <div class="container">
-            <h1>Success!</h1>
-            <p>Aquí tienes tu <strong>SPOTIFY_REFRESH_TOKEN</strong>:</p>
+            <h1>¡Token Generado!</h1>
+            <p>Copia tu <strong>SPOTIFY_REFRESH_TOKEN</strong>:</p>
             <code>${data.refresh_token}</code>
-            <p class="instructions">Copia este valor y pégalo en tu archivo <strong>.env</strong>.</p>
-            <p><a href="/">Ir al dashboard</a></p>
+            <p class="instructions">Guarda este valor en las variables de entorno de tu proyecto (Vercel o .env).</p>
+            <div style="margin-top: 30px;"><a href="/">Volver al Dashboard</a></div>
           </div>
         </body>
       </html>
