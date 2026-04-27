@@ -1,6 +1,7 @@
+
 import { ThemeCustomizer } from '@/components/ThemeCustomizer';
 import { Button } from '@/components/ui/button';
-import { Music, Github, Settings, Zap, Terminal } from 'lucide-react';
+import { Music, Github, Settings, Zap, Terminal, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -45,20 +46,31 @@ export default function Home() {
               <Settings className="w-6 h-6" /> Setup Guide
             </h2>
             <div className="space-y-6">
-              <Step 
-                num="01" 
-                title="Create Spotify App" 
-                desc="Go to Spotify Developer Dashboard and create an app. Set Redirect URI to http://localhost:3000."
-              />
+              <div className="flex gap-4 group">
+                <div className="font-code text-primary/40 text-2xl pt-1 font-black group-hover:text-primary transition-colors">01.</div>
+                <div className="flex-1">
+                  <h4 className="text-xl font-bold mb-1 tracking-tight flex items-center justify-between">
+                    Iniciar Autorización
+                    <Link href="/setup">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-primary bg-primary/10 hover:bg-primary/20">
+                        <ExternalLink className="w-3 h-3 mr-1" /> Ir a Auth
+                      </Button>
+                    </Link>
+                  </h4>
+                  <p className="text-muted-foreground text-sm font-body">
+                    Usa nuestra herramienta de autorización para conectar tu cuenta y generar el token necesario.
+                  </p>
+                </div>
+              </div>
               <Step 
                 num="02" 
-                title="Get Refresh Token" 
-                desc="Use the Authorization Code flow to generate a long-lived Refresh Token for your account."
+                title="Configurar Redirect URI" 
+                desc="En tu panel de Spotify, añade: {TU_URL}/api/callback como Redirect URI permitida."
               />
               <Step 
                 num="03" 
-                title="Configure Env" 
-                desc="Add SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN to your deployment."
+                title="Actualizar .env" 
+                desc="Copia el Refresh Token generado y añádelo a tus variables de entorno."
               />
               <Step 
                 num="04" 
