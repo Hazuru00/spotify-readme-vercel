@@ -8,7 +8,8 @@ import Link from 'next/link';
 
 export default function SetupPage() {
   const handleAuth = () => {
-    const client_id = '86c6ca9576174804b34f6a0a3d53e92b';
+    // Usamos la variable de entorno pública o el ID por defecto si no está configurada
+    const client_id = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '86c6ca9576174804b34f6a0a3d53e92b';
     const redirect_uri = `${window.location.origin}/api/callback`;
     const scope = 'user-read-currently-playing user-read-recently-played';
     
@@ -30,7 +31,7 @@ export default function SetupPage() {
           </div>
           <CardTitle className="text-primary text-2xl font-headline italic">Spotify Auth Helper</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Generate your long-lived Refresh Token for the widget.
+            Genera tu Refresh Token de larga duración para el widget.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -38,7 +39,7 @@ export default function SetupPage() {
             <div className="flex gap-3 items-start">
               <div className="bg-primary/10 p-2 rounded text-primary shrink-0"><ShieldCheck className="w-4 h-4" /></div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Asegúrate de haber añadido <code className="bg-primary/20 text-primary px-1 rounded">/api/callback</code> como Redirect URI en tu panel de Spotify.
+                Importante: Añade <code className="bg-primary/20 text-primary px-1 rounded">{typeof window !== 'undefined' ? window.location.origin : ''}/api/callback</code> como Redirect URI en tu panel de Spotify.
               </p>
             </div>
             
