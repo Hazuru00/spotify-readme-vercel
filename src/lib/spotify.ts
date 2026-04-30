@@ -1,3 +1,4 @@
+
 import { stringify } from 'querystring';
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
@@ -27,11 +28,19 @@ export async function getAccessToken() {
     cache: 'no-store',
   });
 
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(`Spotify Token Error: ${data.error_description || data.error}`);
+  const responseText = await response.text();
+  console.log('[Spotify Auth] Status:', response.status);
+  console.log('[Spotify Auth] Response:', responseText);
+
+  try {
+    const data = JSON.parse(responseText);
+    if (data.error) {
+      throw new Error(`Spotify Token Error: ${data.error_description || data.error}`);
+    }
+    return data;
+  } catch (e) {
+    throw new Error(`Failed to parse Spotify API response: ${responseText}`);
   }
-  return data;
 }
 
 export async function getNowPlaying() {
@@ -68,13 +77,18 @@ export type SpotifyNowPlayingData = {
 export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
   try {
     const response = await getNowPlaying();
+    console.log('[Spotify Now Playing] Status:', response.status);
 
     if (response.status === 204 || response.status > 400) {
+      console.log('[Spotify] No active playback, fetching recently played...');
       const recentRes = await getRecentlyPlayed();
+      console.log('[Spotify Recently Played] Status:', recentRes.status);
+      
       const recentData = await recentRes.json();
       
       if (recentData.items && recentData.items.length > 0) {
         const lastTrack = recentData.items[0].track;
+        console.log('[Spotify] Last track found:', lastTrack.name);
         return {
           isPlaying: false,
           title: lastTrack.name,
@@ -96,6 +110,8 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
     }
 
     const data = await response.json();
+    console.log('[Spotify] Currently playing data received for:', data.item?.name);
+
     if (!data.item) {
        return {
         isPlaying: false,
@@ -116,7 +132,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
       duration: data.item.duration_ms || 1,
     };
   } catch (error: any) {
-    console.error('Error fetching Spotify data:', error.message);
+    console.error('[Spotify Error]', error.message);
     return {
       isPlaying: false,
       title: 'ERROR',
