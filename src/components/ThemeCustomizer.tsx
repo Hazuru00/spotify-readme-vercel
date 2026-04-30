@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generateRetroPixelTheme } from '@/ai/flows/retro-pixel-theme-generator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,12 @@ export function ThemeCustomizer() {
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -32,8 +37,8 @@ export function ThemeCustomizer() {
   };
 
   const getUrl = () => {
-    if (!theme) return '';
-    const baseUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/now-playing` : '/api/now-playing';
+    if (!theme || !mounted) return '';
+    const baseUrl = `${window.location.origin}/api/now-playing`;
     const params = new URLSearchParams({
       primary: theme.primaryColor.replace('#', ''),
       bg: theme.backgroundColor.replace('#', ''),
@@ -50,6 +55,8 @@ export function ThemeCustomizer() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (!mounted) return null;
 
   return (
     <Card className="bg-black/40 border-primary/20 backdrop-blur-md">
@@ -111,7 +118,7 @@ export function ThemeCustomizer() {
                  alt="Generated Theme Preview" 
                  className="pixel-border max-w-full transition-transform hover:scale-[1.02]" 
                />
-               <div className="absolute inset-0 crt-scanlines rounded-md opacity-20"></div>
+               <div className="absolute inset-0 crt-scanlines rounded-md opacity-20 pointer-events-none"></div>
             </div>
         </CardFooter>
       )}
