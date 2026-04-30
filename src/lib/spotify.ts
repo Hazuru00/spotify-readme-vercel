@@ -10,14 +10,8 @@ const RECENTLY_PLAYED_URL = 'https://api.spotify.com/v1/me/player/recently-playe
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
 export async function getAccessToken() {
-  console.log('[Spotify] Solicitando nuevo access token...');
-  
   if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    const missing = [];
-    if (!CLIENT_ID) missing.push('CLIENT_ID');
-    if (!CLIENT_SECRET) missing.push('CLIENT_SECRET');
-    if (!REFRESH_TOKEN) missing.push('REFRESH_TOKEN');
-    throw new Error(`Missing: ${missing.join(', ')}`);
+    throw new Error(`Faltan variables: ${!CLIENT_ID ? 'ID ' : ''}${!CLIENT_SECRET ? 'SECRET ' : ''}${!REFRESH_TOKEN ? 'TOKEN' : ''}`);
   }
 
   try {
@@ -37,13 +31,13 @@ export async function getAccessToken() {
     const data = await response.json();
     
     if (data.error) {
-      console.error('[Spotify] Error al refrescar token:', data.error_description || data.error);
+      console.error('[Spotify Auth Error]:', data.error, data.error_description);
       throw new Error(`Auth Error: ${data.error}`);
     }
     
     return data;
   } catch (err: any) {
-    console.error('[Spotify] Fallo crítico en getAccessToken:', err.message);
+    console.error('[Spotify] Error crítico al refrescar token:', err.message);
     throw err;
   }
 }
@@ -83,9 +77,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
   try {
     const response = await getNowPlaying();
 
-    // 204 significa que no hay nada reproduciéndose actualmente
     if (response.status === 204) {
-      console.log('[Spotify] Nada sonando ahora mismo. Buscando última canción...');
       const recentRes = await getRecentlyPlayed();
       const recentData = await recentRes.json();
       
@@ -111,10 +103,28 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
       };
     }
 
+    if (response.status === 403) {
+      const body = await response.text();
+      console.error('[Spotify] 403 Forbidden. ¿Añadiste tu email a "Users and Designations" en el Dashboard?', body);
+      return {
+        isPlaying: false,
+        title: 'API 403 ERROR',
+        artist: 'Check Whitelist / Scopes',
+        albumArt: null,
+        progress: 0,
+        duration: 1,
+      };
+    }
+
     if (response.status > 400) {
-      const errText = await response.text();
-      console.error('[Spotify] Error de API Status:', response.status, errText);
-      throw new Error(`API Error ${response.status}`);
+      return {
+        isPlaying: false,
+        title: `API ERROR ${response.status}`,
+        artist: 'Response error from Spotify',
+        albumArt: null,
+        progress: 0,
+        duration: 1,
+      };
     }
 
     const data = await response.json();
@@ -123,7 +133,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
        return {
         isPlaying: false,
         title: 'Spotify Inactive',
-        artist: 'Ad or Private Session',
+        artist: 'Private Session or Ad',
         albumArt: null,
         progress: 0,
         duration: 1,
@@ -142,7 +152,7 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
     console.error('[Spotify] Error en fetchNowPlayingData:', error.message);
     return {
       isPlaying: false,
-      title: 'CONFIG ERROR',
+      title: 'FETCH ERROR',
       artist: error.message || 'Check logs',
       albumArt: null,
       progress: 0,
