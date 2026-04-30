@@ -10,28 +10,42 @@ const RECENTLY_PLAYED_URL = 'https://api.spotify.com/v1/me/player/recently-playe
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
 export async function getAccessToken() {
+  console.log('[Spotify] Solicitando nuevo access token...');
+  
   if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    throw new Error('Missing Spotify credentials');
+    const missing = [];
+    if (!CLIENT_ID) missing.push('CLIENT_ID');
+    if (!CLIENT_SECRET) missing.push('CLIENT_SECRET');
+    if (!REFRESH_TOKEN) missing.push('REFRESH_TOKEN');
+    throw new Error(`Missing: ${missing.join(', ')}`);
   }
 
-  const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${BASIC}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: stringify({
-      grant_type: 'refresh_token',
-      refresh_token: REFRESH_TOKEN,
-    }),
-    cache: 'no-store',
-  });
+  try {
+    const response = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${BASIC}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: stringify({
+        grant_type: 'refresh_token',
+        refresh_token: REFRESH_TOKEN,
+      }),
+      cache: 'no-store',
+    });
 
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(`Spotify Token Error: ${data.error_description || data.error}`);
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('[Spotify] Error al refrescar token:', data.error_description || data.error);
+      throw new Error(`Auth Error: ${data.error}`);
+    }
+    
+    return data;
+  } catch (err: any) {
+    console.error('[Spotify] Fallo crítico en getAccessToken:', err.message);
+    throw err;
   }
-  return data;
 }
 
 export async function getNowPlaying() {
@@ -69,7 +83,9 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
   try {
     const response = await getNowPlaying();
 
-    if (response.status === 204 || response.status > 400) {
+    // 204 significa que no hay nada reproduciéndose actualmente
+    if (response.status === 204) {
+      console.log('[Spotify] Nada sonando ahora mismo. Buscando última canción...');
       const recentRes = await getRecentlyPlayed();
       const recentData = await recentRes.json();
       
@@ -87,28 +103,27 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
 
       return {
         isPlaying: false,
-        title: 'Nothing playing',
-        artist: '— silencio total —',
+        title: 'Shhh... Silence',
+        artist: 'Nothing recently played',
         albumArt: null,
         progress: 0,
         duration: 1,
       };
     }
 
-    let data;
-    try {
-      data = await response.json();
-    } catch (e) {
-      const text = await response.text();
-      console.error('Failed to parse now-playing response. Body:', text);
-      throw e;
+    if (response.status > 400) {
+      const errText = await response.text();
+      console.error('[Spotify] Error de API Status:', response.status, errText);
+      throw new Error(`API Error ${response.status}`);
     }
+
+    const data = await response.json();
 
     if (!data.item) {
        return {
         isPlaying: false,
-        title: 'Ad break / Private session',
-        artist: 'Spotify',
+        title: 'Spotify Inactive',
+        artist: 'Ad or Private Session',
         albumArt: null,
         progress: 0,
         duration: 1,
@@ -124,11 +139,11 @@ export async function fetchNowPlayingData(): Promise<SpotifyNowPlayingData> {
       duration: data.item.duration_ms || 1,
     };
   } catch (error: any) {
-    console.error('Error fetching Spotify data:', error.message);
+    console.error('[Spotify] Error en fetchNowPlayingData:', error.message);
     return {
       isPlaying: false,
-      title: 'ERROR',
-      artist: error.message || 'Check config',
+      title: 'CONFIG ERROR',
+      artist: error.message || 'Check logs',
       albumArt: null,
       progress: 0,
       duration: 1,
